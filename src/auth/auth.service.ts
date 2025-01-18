@@ -1,13 +1,17 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import {
+  AuthApiError,
+  createClient,
+  SupabaseClient,
+} from '@supabase/supabase-js';
 
 @Injectable()
 export class AuthService {
   // Instantiate the SupabaseClient
   private supabase: SupabaseClient;
 
-  // Create a constructor that initialises the supabaseClient with our credentials
+  // Access credentials centrally using ConfigService and pass into SupabaseClient
   constructor(private readonly configService: ConfigService) {
     const supabaseUrl = this.configService.get<string>('SUPABASE_URL');
     const supabasekey = this.configService.get<string>(
@@ -34,8 +38,23 @@ export class AuthService {
       password,
     });
 
-    if (error) throw new Error(error.message);
+    if (error) {
+      console.log(`Error signing in: ${error.message}`);
+
+      return error.message;
+    }
 
     return data;
+  }
+
+  async signout() {
+    const { error } = await this.supabase.auth.signOut();
+
+    if (error) {
+      console.log(`Error signing out: ${error.message}`);
+
+      return error.message;
+    }
+    return { message: 'Signed out successfully' };
   }
 }

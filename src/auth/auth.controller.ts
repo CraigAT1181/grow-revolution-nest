@@ -1,4 +1,12 @@
-import { Body, Controller, Post } from '@nestjs/common';
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  ForbiddenException,
+  InternalServerErrorException,
+  Post,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { AuthService } from './auth.service';
 
 @Controller('auth')
@@ -15,6 +23,20 @@ export class AuthController {
   // Define the LOGIN route
   @Post('signin')
   async signin(@Body() body: { email: string; password: string }) {
-    return this.authService.signin(body.email, body.password);
+    try {
+      return this.authService.signin(body.email, body.password);
+    } catch (error) {
+      throw new UnauthorizedException(error);
+    }
+  }
+
+  // Define the SIGNOUT route
+  @Post('signout')
+  async signout() {
+    try {
+      return this.authService.signout();
+    } catch (error) {
+      throw new BadRequestException(error);
+    }
   }
 }
