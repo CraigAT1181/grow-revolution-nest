@@ -1,25 +1,12 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import {
-  AuthApiError,
-  createClient,
-  SupabaseClient,
-} from '@supabase/supabase-js';
+import { Inject, Injectable } from '@nestjs/common';
+import { SupabaseClient } from '@supabase/supabase-js';
 
 @Injectable()
 export class AuthService {
-  // Instantiate the SupabaseClient
-  private supabase: SupabaseClient;
-
   // Access credentials centrally using ConfigService and pass into SupabaseClient
-  constructor(private readonly configService: ConfigService) {
-    const supabaseUrl = this.configService.get<string>('SUPABASE_URL');
-    const supabasekey = this.configService.get<string>(
-      'SUPABASE_SERVICE_ROLE_KEY',
-    );
-
-    this.supabase = createClient(supabaseUrl, supabasekey);
-  }
+  constructor(
+    @Inject('SUPABASE_CLIENT') private readonly supabase: SupabaseClient,
+  ) {}
 
   async register(email: string, password: string) {
     const { data, error } = await this.supabase.auth.signUp({
@@ -30,6 +17,83 @@ export class AuthService {
     if (error) throw new Error(error.message);
 
     return data;
+  }
+
+  async uploadProfilePicture(authUserId: string, file: Express.Multer.File) {
+    const filename = `${authUserId}/${Date.now()}_${file.originalname}`;
+
+    const { error } = await this.supabase.storage
+      .from('profile-pictures')
+      .upload(filename, file.path, {
+        cacheControl: '3600',
+        upsert: false,
+      });
+
+    if (error)
+      throw new Error(`Failed to upload profile picture: ${error.message}`);
+
+    const { data: publicUrlData } = this.supabase.storage
+      .from('profile-pictures')
+      .getPublicUrl(filename);
+
+    return publicUrlData?.publicUrl || null;
+  }
+
+  async getLocationId(locationName: string): Promise<string | null> {
+    // Check if location exists
+    const { data, error } = await this.supabase
+      .from('locations')
+      .select('location_id')
+      .eq('location_name', locationName)
+      .single();
+
+    if (error && error.code !== 'PGRST116') {
+      // Ignore "not found" errors
+      throw new Error(`Failed to query locations: ${error.message}`);
+    }
+
+    // If location exists, return its ID
+    if (data) {
+      return data.location_id;
+    }
+
+    // Otherwise, insert a new location
+    const { data: insertData, error: insertError } = await this.supabase
+      .from('locations')
+      .insert({ location_name: locationName })
+      .select('location_id')
+      .single();
+
+    if (insertError) {
+      throw new Error(`Failed to insert new location: ${insertError.message}`);
+    }
+
+    return insertData.location_id;
+  }
+
+  async insertUser(
+    authUserId: string,
+    email: string,
+    username: string,
+    locationName: string | null,
+    profilePicUrl: string,
+  ): Promise<{ message: string }> {
+    let locationId: string | null = null;
+
+    if (locationName) {
+      locationId = await this.getLocationId(locationName); // Fetch or insert the location
+    }
+    const { error } = await this.supabase.from('users').insert({
+      auth_user_id: authUserId,
+      email,
+      user_name: username,
+      location_id: locationId,
+      profile_pic: profilePicUrl,
+    });
+
+    if (error) throw new Error(`Failed to insert user: ${error.message}`);
+
+    return { message: 'User successfully registered.' };
   }
 
   async signin(email: string, password: string) {
