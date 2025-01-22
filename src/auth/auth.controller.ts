@@ -1,11 +1,9 @@
 import {
-  BadRequestException,
   Body,
   Controller,
   HttpException,
   HttpStatus,
   Post,
-  UnauthorizedException,
   UploadedFile,
   UseInterceptors,
 } from '@nestjs/common';
@@ -46,7 +44,7 @@ export class AuthController {
         );
       }
 
-      const insertResponse = await this.authService.insertUser(
+      const insertedUser = await this.authService.insertUser(
         authUserId,
         body.email,
         body.username,
@@ -54,7 +52,7 @@ export class AuthController {
         profilePicUrl,
       );
 
-      return insertResponse;
+      return insertedUser;
     } catch (error) {
       throw new HttpException(
         `Registration failed: ${error.message}`,
@@ -67,9 +65,13 @@ export class AuthController {
   @Post('signin')
   async signin(@Body() body: { email: string; password: string }) {
     try {
-      return this.authService.signin(body.email, body.password);
+      return await this.authService.signin(body.email, body.password);
     } catch (error) {
-      throw new UnauthorizedException(error);
+      console.error('In the controller', error);
+      throw new HttpException(
+        `Signin failed: ${error.message}`,
+        HttpStatus.UNAUTHORIZED,
+      );
     }
   }
 
@@ -77,9 +79,12 @@ export class AuthController {
   @Post('signout')
   async signout() {
     try {
-      return this.authService.signout();
+      return await this.authService.signout();
     } catch (error) {
-      throw new BadRequestException(error);
+      throw new HttpException(
+        `Signout failed: ${error.message}`,
+        HttpStatus.BAD_REQUEST,
+      );
     }
   }
 }

@@ -77,23 +77,27 @@ export class AuthService {
     username: string,
     locationName: string | null,
     profilePicUrl: string,
-  ): Promise<{ message: string }> {
+  ): Promise<{ message: string; user: any }> {
     let locationId: string | null = null;
 
     if (locationName) {
-      locationId = await this.getLocationId(locationName); // Fetch or insert the location
+      locationId = await this.getLocationId(locationName);
     }
-    const { error } = await this.supabase.from('users').insert({
-      auth_user_id: authUserId,
-      email,
-      user_name: username,
-      location_id: locationId,
-      profile_pic: profilePicUrl,
-    });
+    const { data: user, error } = await this.supabase
+      .from('users')
+      .insert({
+        auth_user_id: authUserId,
+        email,
+        user_name: username,
+        location_id: locationId,
+        profile_pic: profilePicUrl,
+      })
+      .select('*')
+      .single();
 
-    if (error) throw new Error(`Failed to insert user: ${error.message}`);
+    if (error) throw new Error(error.message);
 
-    return { message: 'User successfully registered.' };
+    return { message: 'User successfully registered.', user };
   }
 
   async signin(email: string, password: string) {
@@ -103,9 +107,7 @@ export class AuthService {
     });
 
     if (error) {
-      console.log(`Error signing in: ${error.message}`);
-
-      return error.message;
+      throw new Error(error.message);
     }
 
     return data;
@@ -115,9 +117,7 @@ export class AuthService {
     const { error } = await this.supabase.auth.signOut();
 
     if (error) {
-      console.log(`Error signing out: ${error.message}`);
-
-      return error.message;
+      throw new Error(error.message);
     }
     return { message: 'Signed out successfully' };
   }
