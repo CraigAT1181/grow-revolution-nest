@@ -1,5 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { SupabaseClient } from '@supabase/supabase-js';
+import * as fs from 'fs';
 
 @Injectable()
 export class AuthService {
@@ -20,21 +21,54 @@ export class AuthService {
   }
 
   async uploadProfilePicture(authUserId: string, file: Express.Multer.File) {
-    const filename = `${authUserId}/${Date.now()}_${file.originalname}`;
+    console.log('Uploading file:', file.originalname); // Logs original file name
+    console.log('File MIME type:', file.mimetype); // Logs file type
+    console.log('File size:', file.size); // Logs file size in bytes
 
-    const { error } = await this.supabase.storage
+    // Validate file type
+    const allowedMimeTypes = ['image/jpeg', 'image/png', 'image/webp'];
+    if (!allowedMimeTypes.includes(file.mimetype)) {
+      throw new Error(
+        'Invalid file type. Only JPEG, PNG, and WebP are allowed.',
+      );
+    }
+
+    const sanitizedFilename = file.originalname.replace(/[^a-zA-Z0-9_.-]/g, '');
+    const filename = `${authUserId}/${Date.now()}_${sanitizedFilename}`;
+    console.log('Generated filename:', filename);
+
+    let fileContent: Buffer;
+
+    if (file.buffer) {
+      console.log('Using file buffer for upload.');
+      fileContent = file.buffer;
+    } else if (file.path) {
+      console.log('Reading file from path.');
+      fileContent = fs.readFileSync(file.path);
+    } else {
+      throw new Error('File content is missing.');
+    }
+
+    const { error, data } = await this.supabase.storage
       .from('profile-pictures')
-      .upload(filename, file.path, {
+      .upload(filename, fileContent, {
+        contentType: file.mimetype,
         cacheControl: '3600',
         upsert: false,
       });
 
-    if (error)
+    if (error) {
+      console.error('Supabase upload error:', error);
       throw new Error(`Failed to upload profile picture: ${error.message}`);
+    }
+
+    console.log('Upload success. File metadata:', data);
 
     const { data: publicUrlData } = this.supabase.storage
       .from('profile-pictures')
       .getPublicUrl(filename);
+
+    console.log('Generated public URL:', publicUrlData?.publicUrl);
 
     return publicUrlData?.publicUrl || null;
   }
@@ -101,16 +135,27 @@ export class AuthService {
   }
 
   async signin(email: string, password: string) {
-    const { data, error } = await this.supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    const { data, error: signInError } =
+      await this.supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
 
-    if (error) {
-      throw new Error(error.message);
+    if (signInError) {
+      throw new Error(signInError.message);
     }
 
-    return data;
+    const authUserId = data.user.id;
+
+    const { data: user, error: userInfoError } = await this.supabase
+      .from('users')
+      .select('*, locations(location_name)')
+      .eq('auth_user_id', authUserId)
+      .single();
+
+    if (userInfoError) throw new Error(userInfoError.message);
+
+    return user;
   }
 
   async signout() {
