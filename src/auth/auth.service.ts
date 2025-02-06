@@ -16,6 +16,7 @@ export class AuthService {
     });
 
     if (error) throw new Error(error.message);
+    console.log('data from register:', data);
 
     return data;
   }
@@ -165,5 +166,14 @@ export class AuthService {
       throw new Error(error.message);
     }
     return { message: 'Signed out successfully' };
+  }
+
+  async resetPassword(email: string) {
+    const { data, error } =
+      await this.supabase.auth.resetPasswordForEmail(email);
+
+    if (error) throw new Error(error.message);
+
+    return { message: 'Password reset email sent.' };
   }
 }

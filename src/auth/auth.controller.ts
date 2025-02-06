@@ -29,6 +29,7 @@ export class AuthController {
     @UploadedFile() profilePic: Express.Multer.File,
   ) {
     try {
+      console.log('Received profilePic:', profilePic);
       const authResponse = await this.authService.register(
         body.email,
         body.password,
@@ -84,6 +85,19 @@ export class AuthController {
       throw new HttpException(
         `Signout failed: ${error.message}`,
         HttpStatus.BAD_REQUEST,
+      );
+    }
+  }
+
+  // Define the RESET PASSWORD route
+  @Post('reset-password')
+  async requestResetPassword(@Body() body: { email: string }) {
+    try {
+      return await this.authService.resetPassword(body.email);
+    } catch (error) {
+      throw new HttpException(
+        'An error occurred',
+        HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
   }
