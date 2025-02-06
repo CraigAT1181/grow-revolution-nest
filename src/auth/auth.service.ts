@@ -179,7 +179,7 @@ export class AuthService {
     if (error) {
       throw new Error(error.message);
     }
-    return { message: 'Signed out successfully' };
+    return { message: 'Signed out successfully.' };
   }
 
   async resetPassword(email: string) {

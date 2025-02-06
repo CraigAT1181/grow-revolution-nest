@@ -34,6 +34,9 @@ describe('AuthService', () => {
           session: { access_token: 'mockToken' },
           error: null,
         }),
+        signOut: jest.fn().mockResolvedValue({
+          message: 'Signed out successfully.',
+        }),
       },
       from: jest.fn((table: string) => {
         if (table === 'users') {
@@ -125,5 +128,12 @@ describe('AuthService', () => {
       email: 'test@example.com',
       locations: { location_name: 'London' },
     });
+  });
+
+  it('should sign a user out', async () => {
+    const result = await service.signout();
+
+    expect(supabaseMock.auth.signOut).toHaveBeenCalled();
+    expect(result).toEqual({ message: 'Signed out successfully.' });
   });
 });
