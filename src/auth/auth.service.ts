@@ -9,6 +9,8 @@ export class AuthService {
     @Inject('SUPABASE_CLIENT') private readonly supabase: SupabaseClient,
   ) {}
 
+  // REGISTER USER
+
   async register(email: string, password: string) {
     const { data, error } = await this.supabase.auth.signUp({
       email,
@@ -20,6 +22,8 @@ export class AuthService {
 
     return data;
   }
+
+  // UPLOAD PROFILE PIC
 
   async uploadProfilePicture(authUserId: string, file: Express.Multer.File) {
     console.log('Uploading file:', file.originalname); // Logs original file name
@@ -74,6 +78,8 @@ export class AuthService {
     return publicUrlData?.publicUrl || null;
   }
 
+  // GET LOCATION ID
+
   async getLocationId(locationName: string): Promise<string | null> {
     // Check if location exists
     const { data, error } = await this.supabase
@@ -106,6 +112,8 @@ export class AuthService {
     return insertData.location_id;
   }
 
+  // INSERT NEW USER
+
   async insertUser(
     authUserId: string,
     email: string,
@@ -135,29 +143,35 @@ export class AuthService {
     return { message: 'User successfully registered.', user };
   }
 
+  // SIGN IN
+
   async signin(email: string, password: string) {
-    const { data, error: signInError } =
-      await this.supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
+    const user = await this.signInUser(email, password);
+    return this.getUserDetails(user.id);
+  }
 
-    if (signInError) {
-      throw new Error(signInError.message);
-    }
+  private async signInUser(email: string, password: string) {
+    const { data, error } = await this.supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
 
-    const authUserId = data.user.id;
+    if (error) throw new Error(error.message);
+    return data.user;
+  }
 
-    const { data: user, error: userInfoError } = await this.supabase
+  private async getUserDetails(authUserId: string) {
+    const { data, error } = await this.supabase
       .from('users')
       .select('*, locations(location_name)')
       .eq('auth_user_id', authUserId)
       .single();
 
-    if (userInfoError) throw new Error(userInfoError.message);
-
-    return user;
+    if (error) throw new Error(error.message);
+    return data;
   }
+
+  // SIGN OUT
 
   async signout() {
     const { error } = await this.supabase.auth.signOut();

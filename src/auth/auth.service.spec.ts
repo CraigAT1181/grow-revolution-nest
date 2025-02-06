@@ -9,6 +9,20 @@ describe('AuthService', () => {
   let configServiceMock: Partial<ConfigService>;
 
   beforeEach(async () => {
+    const mockSelect = jest.fn().mockReturnValue({
+      eq: jest.fn().mockReturnValue({
+        single: jest.fn().mockResolvedValue({
+          data: {
+            auth_user_id: 'mock-user-id',
+            name: 'John Doe',
+            email: 'test@example.com',
+            locations: { location_name: 'London' },
+          },
+          error: null,
+        }),
+      }),
+    });
+
     supabaseMock = {
       auth: {
         signUp: jest.fn().mockResolvedValue({
@@ -18,34 +32,25 @@ describe('AuthService', () => {
         signInWithPassword: jest.fn().mockResolvedValue({
           data: { user: { id: 'mock-user-id' } },
           session: { access_token: 'mockToken' },
-        }),
-        signOut: jest
-          .fn()
-          .mockResolvedValue({ message: 'Signed out successfully' }),
-        resetPasswordForEmail: jest
-          .fn()
-          .mockResolvedValue({ message: 'Password reset email sent.' }),
-      },
-      storage: {
-        from: jest.fn().mockReturnValue({
-          upload: jest.fn().mockResolvedValue({ data: {}, error: null }),
-          getPublicUrl: jest.fn().mockResolvedValue({
-            data: { publicUrl: 'https://supabase.com/public/profile.jpg' },
-          }),
+          error: null,
         }),
       },
-      from: jest.fn().mockReturnValue({
-        insert: jest
-          .fn()
-          .mockResolvedValue({ data: { id: '456' }, error: null }),
-        select: jest.fn().mockResolvedValue({ data: [], error: null }),
-        eq: jest.fn().mockReturnThis(),
-        single: jest
-          .fn()
-          .mockResolvedValue({
-            data: { location_id: 'mock-location-id' },
-            error: null,
+      from: jest.fn((table: string) => {
+        if (table === 'users') {
+          return {
+            select: mockSelect,
+          };
+        }
+        return {
+          select: jest.fn().mockReturnValue({
+            eq: jest.fn().mockReturnValue({
+              single: jest.fn().mockResolvedValue({
+                data: null,
+                error: { message: 'Table not mocked' },
+              }),
+            }),
           }),
+        };
       }),
     } as unknown as jest.Mocked<SupabaseClient>;
 
@@ -71,5 +76,54 @@ describe('AuthService', () => {
   it('should be defined', () => {
     expect(service).toBeDefined();
     expect(supabaseMock).toBeDefined();
+  });
+
+  it('should register a user', async () => {
+    const email = 'test@example.com';
+    const password = 'password123';
+
+    const result = await service.register(email, password);
+
+    // Check that the signUp function was called with the correct email and password
+    expect(supabaseMock.auth.signUp).toHaveBeenCalledWith({ email, password });
+    expect(result).toEqual({
+      user: { id: 'mock-user-id' },
+      session: null,
+    });
+  });
+
+  it('should sign a user in and return a user from the users table', async () => {
+    const email = 'test@example.com';
+    const password = 'password123';
+
+    const result = await service.signin(email, password);
+
+    // Ensure signInUser is called correctly
+    expect(supabaseMock.auth.signInWithPassword).toHaveBeenCalledWith({
+      email,
+      password,
+    });
+
+    // Ensure getUserDetails is called with the correct auth_user_id
+    expect(supabaseMock.from).toHaveBeenCalledWith('users');
+    expect(supabaseMock.from('users').select).toHaveBeenCalledWith(
+      '*, locations(location_name)',
+    );
+    expect(supabaseMock.from('users').select().eq).toHaveBeenCalledWith(
+      'auth_user_id',
+      'mock-user-id',
+    );
+    expect(
+      supabaseMock.from('users').select().eq('auth_user_id', 'mock-user-id')
+        .single,
+    ).toHaveBeenCalled();
+
+    // Validate final returned user object
+    expect(result).toEqual({
+      auth_user_id: 'mock-user-id',
+      name: 'John Doe',
+      email: 'test@example.com',
+      locations: { location_name: 'London' },
+    });
   });
 });
