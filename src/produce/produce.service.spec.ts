@@ -9,15 +9,96 @@ describe('ProduceService', () => {
   let configServiceMock: Partial<ConfigService>;
 
   beforeEach(async () => {
-    // Creating the mocked supabase client, mocking each function to return 'this'
     supabaseMock = {
-      from: jest.fn().mockReturnThis(),
-      select: jest.fn().mockReturnThis(),
-      insert: jest.fn().mockReturnThis(),
-      update: jest.fn().mockReturnThis(),
-      delete: jest.fn().mockReturnThis(),
-      eq: jest.fn().mockReturnThis(),
-      single: jest.fn(),
+      from: jest.fn((table: string) => {
+        if (table === 'produce') {
+          return {
+            select: jest.fn((columns: string) => {
+              if (columns === '*') {
+                return {
+                  eq: jest.fn((column: string, value: string) => {
+                    if (column === 'produce_id') {
+                      // Find the specific produce item by ID
+                      const produceItem = [
+                        {
+                          produce_id: '1',
+                          name: 'Tomato',
+                          category: 'vegetable',
+                        },
+                        {
+                          produce_id: '2',
+                          name: 'Sweet Potato',
+                          category: 'vegetable',
+                        },
+                        {
+                          produce_id: '3',
+                          name: 'Beetroot',
+                          category: 'vegetable',
+                        },
+                        {
+                          produce_id: '4',
+                          name: 'Swede',
+                          category: 'vegetable',
+                        },
+                      ].find((p) => p.produce_id === value);
+
+                      return {
+                        single: jest.fn().mockResolvedValue({
+                          data: produceItem || null,
+                          error: produceItem ? null : { message: 'Not found' },
+                        }),
+                      };
+                    }
+                    return {
+                      single: jest
+                        .fn()
+                        .mockResolvedValue({
+                          data: null,
+                          error: { message: 'Invalid column' },
+                        }),
+                    };
+                  }),
+                  then: jest.fn((callback) =>
+                    callback({
+                      data: [
+                        {
+                          produce_id: '1',
+                          name: 'Tomato',
+                          category: 'vegetable',
+                        },
+                        {
+                          produce_id: '2',
+                          name: 'Sweet Potato',
+                          category: 'vegetable',
+                        },
+                        {
+                          produce_id: '3',
+                          name: 'Beetroot',
+                          category: 'vegetable',
+                        },
+                        {
+                          produce_id: '4',
+                          name: 'Swede',
+                          category: 'vegetable',
+                        },
+                      ],
+                      error: null,
+                    }),
+                  ),
+                };
+              }
+            }),
+          };
+        }
+        return {
+          select: jest
+            .fn()
+            .mockResolvedValue({
+              data: null,
+              error: { message: 'No table mocked.' },
+            }),
+        };
+      }),
     } as unknown as jest.Mocked<SupabaseClient>;
 
     // Mock ConfigService
@@ -46,5 +127,27 @@ describe('ProduceService', () => {
   it('should be defined', () => {
     expect(service).toBeDefined();
     expect(supabaseMock).toBeDefined();
+  });
+
+  // Test 2: Check if the service correctly retrieves all produce
+  it('should retrieve all produce information', async () => {
+    const result = await service.fetchAllProduce();
+
+    expect(result).toEqual([
+      { produce_id: '1', name: 'Tomato', category: 'vegetable' },
+      { produce_id: '2', name: 'Sweet Potato', category: 'vegetable' },
+      { produce_id: '3', name: 'Beetroot', category: 'vegetable' },
+      { produce_id: '4', name: 'Swede', category: 'vegetable' },
+    ]);
+  });
+
+  // Test 3: Check if the service correctly retrieves one produce entry using a produce_id
+  it('should retrieve a single produce item by ID', async () => {
+    const result = await service.fetchProduceById('1');
+    expect(result).toEqual({
+      produce_id: '1',
+      name: 'Tomato',
+      category: 'vegetable',
+    });
   });
 });
