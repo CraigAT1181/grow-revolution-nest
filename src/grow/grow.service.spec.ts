@@ -1,10 +1,10 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { ProduceService } from './produce.service';
+import { GrowService } from './grow.service';
 import { ConfigService } from '@nestjs/config';
 import { SupabaseClient } from '@supabase/supabase-js';
 
 describe('ProduceService', () => {
-  let service: ProduceService;
+  let service: GrowService;
   let supabaseMock: jest.Mocked<SupabaseClient>;
   let configServiceMock: Partial<ConfigService>;
 
@@ -50,12 +50,10 @@ describe('ProduceService', () => {
                       };
                     }
                     return {
-                      single: jest
-                        .fn()
-                        .mockResolvedValue({
-                          data: null,
-                          error: { message: 'Invalid column' },
-                        }),
+                      single: jest.fn().mockResolvedValue({
+                        data: null,
+                        error: { message: 'Invalid column' },
+                      }),
                     };
                   }),
                   then: jest.fn((callback) =>
@@ -91,12 +89,10 @@ describe('ProduceService', () => {
           };
         }
         return {
-          select: jest
-            .fn()
-            .mockResolvedValue({
-              data: null,
-              error: { message: 'No table mocked.' },
-            }),
+          select: jest.fn().mockResolvedValue({
+            data: null,
+            error: { message: 'No table mocked.' },
+          }),
         };
       }),
     } as unknown as jest.Mocked<SupabaseClient>;
@@ -113,14 +109,14 @@ describe('ProduceService', () => {
     // Set up a testing module, using the mocked versions of configService and supabaseClient
     const module: TestingModule = await Test.createTestingModule({
       providers: [
-        ProduceService,
+        GrowService,
         { provide: 'SUPABASE_CLIENT', useValue: supabaseMock },
         { provide: ConfigService, useValue: configServiceMock },
       ],
     }).compile();
 
     // Retrieve the service from the module
-    service = module.get<ProduceService>(ProduceService);
+    service = module.get<GrowService>(GrowService);
   });
 
   // Test 1: Check if the service was created successfully
