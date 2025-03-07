@@ -39,7 +39,11 @@ export class GrowController {
   @Get('months')
   async fetchMonths() {
     try {
-      return await this.growService.fetchMonths();
+      const monthList = await this.growService.fetchMonths();
+
+      const sortedMonthList = monthList.sort((a, b) => a.month_id - b.month_id);
+
+      return sortedMonthList;
     } catch (error) {
       throw new HttpException(
         `Unable to fetch months: ${error}`,
@@ -48,13 +52,13 @@ export class GrowController {
     }
   }
 
-  @Get('months/:month_id/jobs')
-  async fetchMonthlyJobs(@Param('month_id') monthId: string) {
+  @Get('months/:month_id/data')
+  async getAllMonthlyData(@Param('month_id') monthId: string) {
     try {
-      return await this.growService.getJobsByMonth(monthId);
+      return await this.growService.fetchMonthData(monthId);
     } catch (error) {
       throw new HttpException(
-        `Unable to fetch jobs for month: ${error}`,
+        `Unable to fetch monthly data: ${error}`,
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
